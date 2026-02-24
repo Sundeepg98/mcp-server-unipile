@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unipile Comprehensive MCP Server (94 tools)
+Unipile Comprehensive MCP Server (95 tools)
 
 A comprehensive MCP server for the full Unipile API covering:
 - Account management (list, get, connect, delete, reconnect, resync, restart, checkpoints)
@@ -1118,7 +1118,7 @@ async def delete_event(
 
 
 # =============================================================================
-# LINKEDIN SEARCH (5 tools)
+# LINKEDIN SEARCH (6 tools)
 # =============================================================================
 
 @mcp.tool()
@@ -1333,6 +1333,77 @@ async def search_posts(
         body["date_posted"] = date_posted
     if content_type:
         body["content_type"] = content_type
+    if cursor:
+        body["cursor"] = cursor
+
+    return await client.request("POST", "/linkedin/search", json_data=body,
+                                account_id=client.linkedin_account_id)
+
+
+@mcp.tool()
+async def search_jobs(
+    keywords: Optional[str] = None,
+    location: Optional[list[str]] = None,
+    job_type: Optional[list[str]] = None,
+    experience_level: Optional[list[str]] = None,
+    remote_policy: Optional[list[str]] = None,
+    posted_at: Optional[str] = None,
+    company: Optional[list[str]] = None,
+    industry: Optional[list[str]] = None,
+    job_function: Optional[list[str]] = None,
+    salary: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    limit: int = 25,
+    cursor: Optional[str] = None
+) -> dict:
+    """Search for LinkedIn job postings as a candidate.
+
+    Use get_search_params() to find valid IDs for location, company, industry.
+    Results include easy_apply flag showing if Quick Apply is available.
+
+    Args:
+        keywords: Job title, skills, or company name
+        location: List of location IDs (use get_search_params('LOCATION', 'Bangalore'))
+        job_type: Filter list: 'FULL_TIME', 'PART_TIME', 'CONTRACT', 'TEMPORARY', 'INTERNSHIP'
+        experience_level: Filter list: 'ENTRY_LEVEL', 'ASSOCIATE', 'MID_SENIOR', 'DIRECTOR', 'EXECUTIVE'
+        remote_policy: Filter list: 'REMOTE', 'HYBRID', 'ON_SITE'
+        posted_at: Time filter: 'past_24h', 'past_week', 'past_month'
+        company: List of company IDs
+        industry: List of industry IDs
+        job_function: List of job function IDs
+        salary: Salary range filter
+        sort_by: 'relevance' or 'date'
+        limit: Max results (1-50, default 25)
+        cursor: Pagination cursor
+    """
+    body = {
+        "api": "classic",
+        "category": "jobs",
+        "limit": min(limit, 50)
+    }
+
+    if keywords:
+        body["keywords"] = keywords
+    if location:
+        body["location"] = location
+    if job_type:
+        body["job_type"] = job_type
+    if experience_level:
+        body["experience_level"] = experience_level
+    if remote_policy:
+        body["remote_policy"] = remote_policy
+    if posted_at:
+        body["posted_at"] = posted_at
+    if company:
+        body["company"] = company
+    if industry:
+        body["industry"] = industry
+    if job_function:
+        body["job_function"] = job_function
+    if salary:
+        body["salary"] = salary
+    if sort_by:
+        body["sort_by"] = sort_by
     if cursor:
         body["cursor"] = cursor
 
