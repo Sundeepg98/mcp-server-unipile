@@ -158,13 +158,28 @@ async def delete_account(account_id: str) -> dict:
 
 
 @mcp.tool()
-async def reconnect_account(account_id: str) -> dict:
-    """Reconnect a disconnected account.
+async def reconnect_account(
+    account_id: str,
+    google_scopes: Optional[str] = None
+) -> dict:
+    """Reconnect a disconnected account via hosted authentication.
+
+    Returns a URL that the user must open in a browser to re-authorize.
 
     Args:
         account_id: The account ID to reconnect
+        google_scopes: Optional comma-separated Google OAuth scope URLs (max 6).
+                       Example: "https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/calendar"
     """
-    return await client.request("POST", f"/accounts/{account_id}/reconnect")
+    body = {
+        "type": "reconnect",
+        "reconnect_account": account_id,
+        "expiresOn": "2099-12-31T23:59:59.999Z",
+        "api_url": client.base_url.rsplit("/api/", 1)[0],
+    }
+    if google_scopes:
+        body["google_scopes"] = google_scopes
+    return await client.request("POST", "/hosted/accounts/link", json_data=body)
 
 
 @mcp.tool()
