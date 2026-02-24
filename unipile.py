@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Unipile Comprehensive MCP Server (72 tools)
+Unipile Comprehensive MCP Server (94 tools)
 
 A comprehensive MCP server for the full Unipile API covering:
-- Account management (list, delete, reconnect, resync)
-- Cross-platform messaging (LinkedIn, WhatsApp, Instagram, Telegram)
-- Attendee management
+- Account management (list, get, connect, delete, reconnect, resync, restart, checkpoints)
+- Cross-platform messaging (LinkedIn, WhatsApp, Instagram, Telegram) with cross-chat search
+- Attendee management (list, get, pictures, chats, reactions)
 - Email (Gmail + Outlook unified, with open/click tracking)
 - Calendar (Google + Microsoft unified)
-- LinkedIn search, profiles, connections, InMail
-- LinkedIn posts & content
-- LinkedIn jobs
+- LinkedIn search, profiles, users (followers, following, comments, reactions)
+- LinkedIn connections, InMail, posts & content
+- LinkedIn jobs & recruiter (hiring projects, applicants, actions)
 - Webhooks (real-time events for all actions)
 - Advanced LinkedIn operations
 """
@@ -123,7 +123,7 @@ client = UnipileClient()
 
 
 # =============================================================================
-# ACCOUNT MANAGEMENT (5 tools)
+# ACCOUNT MANAGEMENT (10 tools)
 # =============================================================================
 
 @mcp.tool()
@@ -192,8 +192,104 @@ async def resync_account(account_id: str) -> dict:
     return await client.request("GET", f"/accounts/{account_id}/resync")
 
 
+@mcp.tool()
+async def get_account(account_id: str) -> dict:
+    """Get details of a single connected account.
+
+    Args:
+        account_id: The account ID to retrieve
+    """
+    return await client.request("GET", f"/accounts/{account_id}")
+
+
+@mcp.tool()
+async def connect_account(
+    provider: str,
+    username: str,
+    password: str,
+    imap_host: Optional[str] = None,
+    imap_port: Optional[int] = None,
+    smtp_host: Optional[str] = None,
+    smtp_port: Optional[int] = None
+) -> dict:
+    """Connect a new account using native authentication (username/password).
+
+    Args:
+        provider: Provider name (e.g. 'LINKEDIN', 'WHATSAPP', 'TELEGRAM', 'CUSTOM_IMAP')
+        username: Account username or email
+        password: Account password or app-specific password
+        imap_host: IMAP server host (for CUSTOM_IMAP provider)
+        imap_port: IMAP server port (for CUSTOM_IMAP provider)
+        smtp_host: SMTP server host (for CUSTOM_IMAP provider)
+        smtp_port: SMTP server port (for CUSTOM_IMAP provider)
+    """
+    body = {
+        "provider": provider,
+        "username": username,
+        "password": password
+    }
+    if imap_host:
+        body["imap_host"] = imap_host
+    if imap_port:
+        body["imap_port"] = imap_port
+    if smtp_host:
+        body["smtp_host"] = smtp_host
+    if smtp_port:
+        body["smtp_port"] = smtp_port
+    return await client.request("POST", "/accounts", json_data=body)
+
+
+@mcp.tool()
+async def solve_checkpoint(
+    account_id: str,
+    code: str,
+    provider: str
+) -> dict:
+    """Solve a 2FA/checkpoint challenge during account connection.
+
+    Args:
+        account_id: The account ID requiring checkpoint
+        code: The verification/2FA code
+        provider: Provider name (e.g. 'LINKEDIN', 'WHATSAPP')
+    """
+    body = {
+        "account_id": account_id,
+        "code": code,
+        "provider": provider
+    }
+    return await client.request("POST", "/accounts/checkpoint", json_data=body)
+
+
+@mcp.tool()
+async def resend_checkpoint(
+    account_id: str,
+    provider: str
+) -> dict:
+    """Resend a checkpoint/2FA verification code.
+
+    Args:
+        account_id: The account ID requiring checkpoint
+        provider: Provider name (e.g. 'LINKEDIN', 'WHATSAPP')
+    """
+    body = {
+        "account_id": account_id,
+        "provider": provider
+    }
+    return await client.request("POST", "/accounts/checkpoint/resend", json_data=body)
+
+
+@mcp.tool()
+async def restart_account(account_id: str) -> dict:
+    """Restart sync processes for an account.
+
+    Args:
+        account_id: The account ID to restart
+    """
+    return await client.request("POST", f"/accounts/{account_id}/restart")
+
+
 # =============================================================================
-# UNIFIED MESSAGING (11 tools — works across LinkedIn, WhatsApp, Email, etc.)
+# UNIFIED MESSAGING (14 tools — works across LinkedIn, WhatsApp, Email, etc.)
 # =============================================================================
 
 @mcp.tool()
@@ -378,8 +474,60 @@ async def start_chat(
     return await client.request("POST", "/chats", json_data=body, account_id=acc)
 
 
+@mcp.tool()
+async def list_all_messages(
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    before: Optional[str] = None,
+    after: Optional[str] = None,
+    sender_id: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """List messages across all chats (cross-chat search).
+
+    Args:
+        limit: Max results (default 50)
+        cursor: Pagination cursor
+        before: Only messages before this ISO8601 datetime
+        after: Only messages after this ISO8601 datetime
+        sender_id: Filter by sender provider ID
+        account_id: Optional - filter to specific account
+    """
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    if before:
+        params["before"] = before
+    if after:
+        params["after"] = after
+    if sender_id:
+        params["sender_id"] = sender_id
+    return await client.request("GET", "/messages", params=params,
+                                account_id=account_id)
+
+
+@mcp.tool()
+async def delete_chat(chat_id: str) -> dict:
+    """Delete a chat conversation.
+
+    Args:
+        chat_id: The chat ID to delete
+    """
+    return await client.request("DELETE", f"/chats/{chat_id}")
+
+
+@mcp.tool()
+async def delete_message(message_id: str) -> dict:
+    """Delete a specific message.
+
+    Args:
+        message_id: The message ID to delete
+    """
+    return await client.request("DELETE", f"/messages/{message_id}")
+
+
 # =============================================================================
-# ATTENDEES (2 tools)
+# ATTENDEES (6 tools)
 # =============================================================================
 
 @mcp.tool()
@@ -432,6 +580,68 @@ async def list_messages_by_attendee(
 
     return await client.request("GET", f"/chat_attendees/{sender_id}/messages",
                                 params=params, account_id=account_id)
+
+
+@mcp.tool()
+async def get_attendee(attendee_id: str) -> dict:
+    """Get details of a single chat attendee.
+
+    Args:
+        attendee_id: The attendee ID
+    """
+    return await client.request("GET", f"/chat_attendees/{attendee_id}")
+
+
+@mcp.tool()
+async def get_attendee_picture(attendee_id: str) -> dict:
+    """Get an attendee's profile picture (returns base64-encoded binary).
+
+    Args:
+        attendee_id: The attendee ID
+
+    Returns:
+        {content_type, size_bytes, data_base64}
+    """
+    return await client.request("GET", f"/chat_attendees/{attendee_id}/picture",
+                                expect_binary=True)
+
+
+@mcp.tool()
+async def list_chats_by_attendee(
+    attendee_id: str,
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """List all chats that a specific attendee is part of.
+
+    Args:
+        attendee_id: The attendee ID
+        limit: Max results (default 50)
+        cursor: Pagination cursor
+        account_id: Optional - filter to specific account
+    """
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    return await client.request("GET", f"/chat_attendees/{attendee_id}/chats",
+                                params=params, account_id=account_id)
+
+
+@mcp.tool()
+async def add_message_reaction(
+    message_id: str,
+    reaction: str
+) -> dict:
+    """Add a reaction to a message.
+
+    Args:
+        message_id: The message ID to react to
+        reaction: The reaction emoji or type
+    """
+    body = {"reaction": reaction}
+    return await client.request("POST", f"/messages/{message_id}/reactions",
+                                json_data=body)
 
 
 # =============================================================================
@@ -1151,7 +1361,7 @@ async def get_search_params(
 
 
 # =============================================================================
-# LINKEDIN PROFILES (2 tools)
+# LINKEDIN PROFILES & USERS (7 tools)
 # =============================================================================
 
 @mcp.tool()
@@ -1183,6 +1393,121 @@ async def get_company_profile(company_id: str) -> dict:
     """
     return await client.request("GET", f"/linkedin/company/{company_id}",
                                 account_id=client.linkedin_account_id)
+
+
+@mcp.tool()
+async def edit_own_profile(
+    headline: Optional[str] = None,
+    summary: Optional[str] = None,
+    location: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """Edit your own LinkedIn profile fields.
+
+    Args:
+        headline: New profile headline
+        summary: New profile summary/about section
+        location: New location string
+        account_id: Optional account ID (defaults to LinkedIn account)
+    """
+    acc = account_id or client.linkedin_account_id
+    body = {"type": "LINKEDIN"}
+    if headline:
+        body["headline"] = headline
+    if summary:
+        body["summary"] = summary
+    if location:
+        body["location"] = location
+    return await client.request("PATCH", "/users/me/edit", json_data=body,
+                                account_id=acc)
+
+
+@mcp.tool()
+async def list_followers(
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """List your LinkedIn followers.
+
+    Args:
+        limit: Max results (default 50)
+        cursor: Pagination cursor
+        account_id: Optional account ID (defaults to LinkedIn account)
+    """
+    acc = account_id or client.linkedin_account_id
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    return await client.request("GET", "/users/followers", params=params,
+                                account_id=acc)
+
+
+@mcp.tool()
+async def list_following(
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """List LinkedIn users/companies you are following.
+
+    Args:
+        limit: Max results (default 50)
+        cursor: Pagination cursor
+        account_id: Optional account ID (defaults to LinkedIn account)
+    """
+    acc = account_id or client.linkedin_account_id
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    return await client.request("GET", "/users/following", params=params,
+                                account_id=acc)
+
+
+@mcp.tool()
+async def list_user_comments(
+    identifier: str,
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """List comments made by a LinkedIn user.
+
+    Args:
+        identifier: The user's LinkedIn provider ID or public identifier
+        limit: Max results (default 50)
+        cursor: Pagination cursor
+        account_id: Optional account ID (defaults to LinkedIn account)
+    """
+    acc = account_id or client.linkedin_account_id
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    return await client.request("GET", f"/users/{identifier}/comments",
+                                params=params, account_id=acc)
+
+
+@mcp.tool()
+async def list_user_reactions(
+    identifier: str,
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """List reactions made by a LinkedIn user.
+
+    Args:
+        identifier: The user's LinkedIn provider ID or public identifier
+        limit: Max results (default 50)
+        cursor: Pagination cursor
+        account_id: Optional account ID (defaults to LinkedIn account)
+    """
+    acc = account_id or client.linkedin_account_id
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    return await client.request("GET", f"/users/{identifier}/reactions",
+                                params=params, account_id=acc)
 
 
 # =============================================================================
@@ -1438,7 +1763,7 @@ async def list_post_reactions(
 
 
 # =============================================================================
-# LINKEDIN JOBS (8 tools)
+# LINKEDIN JOBS & RECRUITER (13 tools)
 # =============================================================================
 
 @mcp.tool()
@@ -1569,6 +1894,91 @@ async def get_applicant_resume(job_id: str, applicant_id: str) -> dict:
         "GET", f"/linkedin/jobs/{job_id}/applicants/{applicant_id}/resume",
         account_id=client.linkedin_account_id, expect_binary=True
     )
+
+
+@mcp.tool()
+async def get_job_applicant(
+    applicant_id: str,
+    service: Optional[str] = None
+) -> dict:
+    """Get details of a single job applicant.
+
+    Args:
+        applicant_id: The applicant ID
+        service: Optional service parameter (e.g. 'LINKEDIN', 'LINKEDIN_RECRUITER')
+    """
+    params = {}
+    if service:
+        params["service"] = service
+    return await client.request("GET", f"/linkedin/jobs/applicants/{applicant_id}",
+                                params=params if params else None,
+                                account_id=client.linkedin_account_id)
+
+
+@mcp.tool()
+async def get_hiring_projects(
+    limit: int = 50,
+    cursor: Optional[str] = None
+) -> dict:
+    """List LinkedIn Recruiter hiring projects.
+
+    Args:
+        limit: Max results (default 50)
+        cursor: Pagination cursor
+    """
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    return await client.request("GET", "/linkedin/projects", params=params,
+                                account_id=client.linkedin_account_id)
+
+
+@mcp.tool()
+async def get_hiring_project(project_id: str) -> dict:
+    """Get details of a single LinkedIn Recruiter hiring project.
+
+    Args:
+        project_id: The hiring project ID
+    """
+    return await client.request("GET", f"/linkedin/projects/{project_id}",
+                                account_id=client.linkedin_account_id)
+
+
+@mcp.tool()
+async def perform_linkedin_action(
+    user_id: str,
+    action: str,
+    api: str = "LINKEDIN",
+    account_id: Optional[str] = None
+) -> dict:
+    """Perform an action on a LinkedIn user (follow, unfollow, block, save lead, etc.).
+
+    Args:
+        user_id: The LinkedIn user/provider ID
+        action: Action to perform: 'follow', 'unfollow', 'block', 'unblock', 'saveLead', 'removeLead'
+        api: API type (default 'LINKEDIN', can be 'LINKEDIN_RECRUITER')
+        account_id: Optional account ID (defaults to LinkedIn account)
+    """
+    acc = account_id or client.linkedin_account_id
+    body = {"api": api, "action": action}
+    return await client.request("POST", f"/linkedin/user/{user_id}",
+                                json_data=body, account_id=acc)
+
+
+@mcp.tool()
+async def solve_job_checkpoint(
+    draft_id: str,
+    input_value: str
+) -> dict:
+    """Solve a checkpoint/verification during LinkedIn job publishing.
+
+    Args:
+        draft_id: The draft job ID that requires verification
+        input_value: The verification input (e.g. confirmation code)
+    """
+    body = {"input": input_value}
+    return await client.request("POST", f"/linkedin/jobs/{draft_id}/checkpoint",
+                                json_data=body, account_id=client.linkedin_account_id)
 
 
 # =============================================================================
