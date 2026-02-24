@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unipile Comprehensive MCP Server (73 tools)
+Unipile Comprehensive MCP Server (68 tools)
 
 A comprehensive MCP server for the full Unipile API covering:
 - Account management (list, delete, reconnect, resync)
@@ -364,69 +364,7 @@ async def start_chat(
 
 
 # =============================================================================
-# ATTENDEES (3 tools)
-# =============================================================================
-
-@mcp.tool()
-async def list_attendees(
-    limit: int = 50,
-    cursor: Optional[str] = None
-) -> dict:
-    """List all known attendees (contacts) across all connected platforms.
-
-    Args:
-        limit: Max results per page (default 50)
-        cursor: Pagination cursor
-    """
-    params = {"limit": limit}
-    if cursor:
-        params["cursor"] = cursor
-
-    return await client.request("GET", "/attendees", params=params)
-
-
-@mcp.tool()
-async def list_chats_by_attendee(
-    attendee_id: str,
-    limit: int = 50,
-    cursor: Optional[str] = None
-) -> dict:
-    """List all chats involving a specific attendee.
-
-    Args:
-        attendee_id: The attendee ID
-        limit: Max results per page (default 50)
-        cursor: Pagination cursor
-    """
-    params = {"limit": limit}
-    if cursor:
-        params["cursor"] = cursor
-
-    return await client.request("GET", f"/attendees/{attendee_id}/chats", params=params)
-
-
-@mcp.tool()
-async def list_messages_by_attendee(
-    attendee_id: str,
-    limit: int = 50,
-    cursor: Optional[str] = None
-) -> dict:
-    """List all messages from a specific attendee.
-
-    Args:
-        attendee_id: The attendee ID
-        limit: Max results per page (default 50)
-        cursor: Pagination cursor
-    """
-    params = {"limit": limit}
-    if cursor:
-        params["cursor"] = cursor
-
-    return await client.request("GET", f"/attendees/{attendee_id}/messages", params=params)
-
-
-# =============================================================================
-# EMAIL (10 tools — Gmail + Outlook unified, with open/click tracking)
+# EMAIL (8 tools — Gmail + Outlook unified, with open/click tracking)
 # =============================================================================
 
 @mcp.tool()
@@ -587,27 +525,6 @@ async def get_email_attachment(email_id: str, attachment_id: str) -> dict:
 
 
 @mcp.tool()
-async def list_email_folders(account_id: Optional[str] = None) -> dict:
-    """List email folders (inbox, sent, drafts, custom folders).
-
-    Args:
-        account_id: Email account ID (defaults to UNIPILE_EMAIL_ACCOUNT_ID)
-    """
-    acc = account_id or client.email_account_id
-    return await client.request("GET", "/emails/folders", account_id=acc)
-
-
-@mcp.tool()
-async def get_email_folder(folder_id: str) -> dict:
-    """Get details of a specific email folder.
-
-    Args:
-        folder_id: The folder ID
-    """
-    return await client.request("GET", f"/emails/folders/{folder_id}")
-
-
-@mcp.tool()
 async def create_email_draft(
     to: list[str],
     subject: str,
@@ -671,9 +588,10 @@ async def list_calendars(account_id: Optional[str] = None) -> dict:
     """List all calendars from connected accounts (Google Calendar, Outlook).
 
     Args:
-        account_id: Optional account ID to filter to specific provider
+        account_id: Account ID (defaults to UNIPILE_EMAIL_ACCOUNT_ID which has calendar access)
     """
-    return await client.request("GET", "/calendars", account_id=account_id)
+    acc = account_id or client.email_account_id
+    return await client.request("GET", "/calendars", account_id=acc)
 
 
 @mcp.tool()
@@ -685,9 +603,10 @@ async def get_calendar(
 
     Args:
         calendar_id: The calendar ID
-        account_id: Optional account ID
+        account_id: Account ID (defaults to UNIPILE_EMAIL_ACCOUNT_ID)
     """
-    return await client.request("GET", f"/calendars/{calendar_id}", account_id=account_id)
+    acc = account_id or client.email_account_id
+    return await client.request("GET", f"/calendars/{calendar_id}", account_id=acc)
 
 
 @mcp.tool()
@@ -712,8 +631,9 @@ async def list_events(
     if cursor:
         params["cursor"] = cursor
 
+    acc = account_id or client.email_account_id
     return await client.request("GET", f"/calendars/{calendar_id}/events",
-                                params=params, account_id=account_id)
+                                params=params, account_id=acc)
 
 
 @mcp.tool()
@@ -776,8 +696,9 @@ async def create_event(
     if transparency:
         event_data["transparency"] = transparency
 
+    acc = account_id or client.email_account_id
     return await client.request("POST", f"/calendars/{calendar_id}/events",
-                                json_data=event_data, account_id=account_id)
+                                json_data=event_data, account_id=acc)
 
 
 @mcp.tool()
@@ -791,14 +712,15 @@ async def get_event(
     Args:
         calendar_id: The calendar ID
         event_id: The event ID
-        account_id: Optional account ID
+        account_id: Account ID (defaults to UNIPILE_EMAIL_ACCOUNT_ID)
 
     Returns:
         Event with title, body, start/end, attendees, organizer,
         conference, recurrence, visibility, transparency
     """
+    acc = account_id or client.email_account_id
     return await client.request("GET", f"/calendars/{calendar_id}/events/{event_id}",
-                                account_id=account_id)
+                                account_id=acc)
 
 
 @mcp.tool()
@@ -861,8 +783,9 @@ async def edit_event(
     if transparency:
         event_data["transparency"] = transparency
 
+    acc = account_id or client.email_account_id
     return await client.request("PATCH", f"/calendars/{calendar_id}/events/{event_id}",
-                                json_data=event_data, account_id=account_id)
+                                json_data=event_data, account_id=acc)
 
 
 @mcp.tool()
@@ -876,10 +799,11 @@ async def delete_event(
     Args:
         calendar_id: The calendar ID
         event_id: The event ID to delete
-        account_id: Optional account ID
+        account_id: Account ID (defaults to UNIPILE_EMAIL_ACCOUNT_ID)
     """
+    acc = account_id or client.email_account_id
     return await client.request("DELETE", f"/calendars/{calendar_id}/events/{event_id}",
-                                account_id=account_id)
+                                account_id=acc)
 
 
 # =============================================================================
