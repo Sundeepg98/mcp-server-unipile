@@ -1,0 +1,25 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - unipileApiKey
+      - unipileBaseUrl
+    properties:
+      unipileApiKey:
+        type: string
+        description: Your Unipile API key (from dashboard.unipile.com)
+      unipileBaseUrl:
+        type: string
+        description: Your Unipile API base URL (e.g. https://apiX.unipile.com:13337/api/v1)
+      linkedinAccountId:
+        type: string
+        description: LinkedIn account ID for LinkedIn-specific tools (optional)
+      emailAccountId:
+        type: string
+        description: Email account ID for email-specific tools (optional)
+  commandFunction:
+    |-
+    config => ({ command: 'uvx', args: ['mcp-server-unipile'], env: { UNIPILE_API_KEY: config.unipileApiKey, UNIPILE_BASE_URL: config.unipileBaseUrl, UNIPILE_LINKEDIN_ACCOUNT_ID: config.linkedinAccountId || '', UNIPILE_EMAIL_ACCOUNT_ID: config.emailAccountId || '' } })
