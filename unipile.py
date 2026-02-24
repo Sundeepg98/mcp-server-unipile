@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unipile Comprehensive MCP Server (68 tools)
+Unipile Comprehensive MCP Server (72 tools)
 
 A comprehensive MCP server for the full Unipile API covering:
 - Account management (list, delete, reconnect, resync)
@@ -361,6 +361,92 @@ async def start_chat(
 
     acc = account_id or client.linkedin_account_id
     return await client.request("POST", "/chats", json_data=body, account_id=acc)
+
+
+# =============================================================================
+# ATTENDEES (2 tools)
+# =============================================================================
+
+@mcp.tool()
+async def list_attendees(
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
+    """List all known chat attendees (contacts) across connected platforms.
+
+    Args:
+        limit: Max results per page (1-250, default 50)
+        cursor: Pagination cursor
+        account_id: Optional - filter to specific account
+    """
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+
+    return await client.request("GET", "/chat_attendees", params=params,
+                                account_id=account_id)
+
+
+@mcp.tool()
+async def list_messages_by_attendee(
+    sender_id: str,
+    limit: int = 50,
+    cursor: Optional[str] = None,
+    account_id: Optional[str] = None,
+    before: Optional[str] = None,
+    after: Optional[str] = None
+) -> dict:
+    """List all messages from a specific attendee.
+
+    Args:
+        sender_id: The attendee's Unipile ID or provider_id
+        limit: Max results per page (1-250, default 50)
+        cursor: Pagination cursor
+        account_id: Optional - filter to specific account
+        before: Only messages before this ISO8601 datetime
+        after: Only messages after this ISO8601 datetime
+    """
+    params = {"limit": limit}
+    if cursor:
+        params["cursor"] = cursor
+    if before:
+        params["before"] = before
+    if after:
+        params["after"] = after
+
+    return await client.request("GET", f"/chat_attendees/{sender_id}/messages",
+                                params=params, account_id=account_id)
+
+
+# =============================================================================
+# EMAIL FOLDERS (2 tools)
+# =============================================================================
+
+@mcp.tool()
+async def list_email_folders(account_id: Optional[str] = None) -> dict:
+    """List all email folders (inbox, sent, drafts, trash, spam, etc.).
+
+    Args:
+        account_id: Email account ID (defaults to UNIPILE_EMAIL_ACCOUNT_ID)
+    """
+    acc = account_id or client.email_account_id
+    return await client.request("GET", "/folders", account_id=acc)
+
+
+@mcp.tool()
+async def get_email_folder(
+    folder_id: str,
+    account_id: Optional[str] = None
+) -> dict:
+    """Get details of a specific email folder.
+
+    Args:
+        folder_id: The folder's Unipile ID or provider UID
+        account_id: Required when using provider UID (defaults to UNIPILE_EMAIL_ACCOUNT_ID)
+    """
+    acc = account_id or client.email_account_id
+    return await client.request("GET", f"/folders/{folder_id}", account_id=acc)
 
 
 # =============================================================================
