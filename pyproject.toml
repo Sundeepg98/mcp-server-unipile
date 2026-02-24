@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-server-unipile"
+version = "0.1.0"
+description = "A comprehensive MCP server for the Unipile API — 95 tools for messaging, email, calendar, LinkedIn, and more"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = [
+    "mcp",
+    "unipile",
+    "llm",
+    "linkedin",
+    "email",
+    "messaging",
+    "calendar",
+    "whatsapp",
+    "telegram",
+    "instagram",
+    "automation",
+    "model-context-protocol",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Email",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+mcp-server-unipile = "mcp_server_unipile:main"
+
+[project.urls]
+Homepage = "https://github.com/Sundeepg98/mcp-server-unipile"
+Repository = "https://github.com/Sundeepg98/mcp-server-unipile"
+Issues = "https://github.com/Sundeepg98/mcp-server-unipile/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_server_unipile"]
