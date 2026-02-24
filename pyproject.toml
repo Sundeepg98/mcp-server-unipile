@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-server-unipile"
-version = "0.1.0"
-description = "A comprehensive MCP server for the Unipile API — 95 tools for messaging, email, calendar, LinkedIn, and more"
+version = "0.1.1"
+description = "A comprehensive MCP server for the Unipile API — 96 tools for messaging, email, calendar, LinkedIn, and more"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

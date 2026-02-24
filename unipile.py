@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unipile Comprehensive MCP Server (95 tools)
+Unipile Comprehensive MCP Server (96 tools)
 
 A comprehensive MCP server for the full Unipile API covering:
 - Account management (list, get, connect, delete, reconnect, resync, restart, checkpoints)
@@ -133,7 +133,7 @@ client = _LazyClient()
 
 
 # =============================================================================
-# ACCOUNT MANAGEMENT (10 tools)
+# ACCOUNT MANAGEMENT (11 tools)
 # =============================================================================
 
 @mcp.tool()
@@ -296,6 +296,34 @@ async def restart_account(account_id: str) -> dict:
         account_id: The account ID to restart
     """
     return await client.request("POST", f"/accounts/{account_id}/restart")
+
+
+@mcp.tool()
+async def update_account_proxy(
+    account_id: str,
+    proxy: Optional[dict] = None,
+    country: Optional[str] = None,
+    ip: Optional[str] = None,
+) -> dict:
+    """Update the proxy configuration of a connected account.
+
+    Provide a custom proxy object, or request a new Unipile-managed proxy
+    by specifying a country code or IP address.
+
+    Args:
+        account_id: The account ID to update
+        proxy: Custom proxy config: {"protocol": "https"|"http"|"socks5", "host": "...", "port": 8080, "username": "...", "password": "..."}
+        country: ISO 3166-1 A-2 country code for Unipile proxy (e.g. "US", "DE")
+        ip: IPv4 address to infer proxy country
+    """
+    body: dict = {}
+    if proxy:
+        body["proxy"] = proxy
+    if country:
+        body["country"] = country
+    if ip:
+        body["ip"] = ip
+    return await client.request("PATCH", f"/accounts/{account_id}", json_data=body)
 
 
 # =============================================================================
