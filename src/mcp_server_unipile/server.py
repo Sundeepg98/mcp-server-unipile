@@ -1250,6 +1250,11 @@ async def search_people(
     past_company: Optional[list[str]] = None,
     network_distance: Optional[list[int]] = None,
     profile_language: Optional[list[str]] = None,
+    viewed_your_profile_recently: bool = False,
+    changed_jobs: bool = False,
+    posted_on_linkedin: bool = False,
+    past_colleague: bool = False,
+    shared_experiences: bool = False,
     limit: int = 25,
     cursor: Optional[str] = None
 ) -> dict:
@@ -1265,6 +1270,11 @@ async def search_people(
         past_company: List of past company IDs
         network_distance: Connection degree [1, 2, 3]
         profile_language: ISO language codes (e.g., ["en"])
+        viewed_your_profile_recently: If True, only show people who viewed your profile
+        changed_jobs: If True, only show people who recently changed jobs
+        posted_on_linkedin: If True, only show people who recently posted
+        past_colleague: If True, only show past colleagues
+        shared_experiences: If True, only show people with shared experiences
         limit: Max results (1-50, default 25)
         cursor: Pagination cursor
     """
@@ -1288,6 +1298,16 @@ async def search_people(
         body["network_distance"] = network_distance
     if profile_language:
         body["profile_language"] = profile_language
+    if viewed_your_profile_recently:
+        body["viewed_your_profile_recently"] = True
+    if changed_jobs:
+        body["changed_jobs"] = True
+    if posted_on_linkedin:
+        body["posted_on_linkedin"] = True
+    if past_colleague:
+        body["past_colleague"] = True
+    if shared_experiences:
+        body["shared_experiences"] = True
     if cursor:
         body["cursor"] = cursor
 
@@ -2291,9 +2311,31 @@ async def raw_linkedin_request(
 
 
 @mcp.tool()
-async def get_profile_visitors() -> dict:
-    """Get a list of people who recently viewed your LinkedIn profile."""
-    return await client.request("GET", "/users/me/profile_visitors",
+async def get_profile_visitors(
+    limit: int = 50,
+    cursor: Optional[str] = None
+) -> dict:
+    """Get people who recently viewed your LinkedIn profile.
+
+    Uses LinkedIn's native 'viewed your profile recently' search filter.
+    Returns names, headlines, companies, and LinkedIn IDs of viewers.
+    Note: LinkedIn limits viewer data based on account tier — free accounts
+    may see fewer results than Premium accounts.
+
+    Args:
+        limit: Max results (1-50, default 50)
+        cursor: Pagination cursor for more results
+    """
+    body = {
+        "api": "classic",
+        "category": "people",
+        "limit": min(limit, 50),
+        "viewed_your_profile_recently": True
+    }
+    if cursor:
+        body["cursor"] = cursor
+
+    return await client.request("POST", "/linkedin/search", json_data=body,
                                 account_id=client.linkedin_account_id)
 
 
