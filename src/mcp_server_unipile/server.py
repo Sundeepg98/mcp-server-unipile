@@ -63,7 +63,9 @@ class UnipileClient:
         params: Optional[dict] = None,
         json_data: Optional[dict] = None,
         account_id: Optional[str] = None,
-        expect_binary: bool = False
+        expect_binary: bool = False,
+        file_paths: Optional[list[str]] = None,
+        file_field: str = "attachments"
     ) -> dict:
         """Make an HTTP request to the Unipile API.
 
@@ -72,6 +74,10 @@ class UnipileClient:
 
         When expect_binary is True, returns {content_type, size_bytes, data_base64}
         instead of parsing JSON. Used for attachments, resumes, etc.
+
+        When file_paths is provided, sends multipart/form-data instead of JSON.
+        Text fields from json_data are sent as form fields alongside binary files.
+        file_field controls the form field name for uploads (default: "attachments").
         """
         url = f"{self.base_url}{endpoint}"
 
@@ -89,13 +95,40 @@ class UnipileClient:
         logger.info(f"Request: {method} {url}")
 
         async with httpx.AsyncClient(timeout=60.0) as http:
-            response = await http.request(
-                method=method,
-                url=url,
-                headers=self.headers,
-                params=params,
-                json=json_data
-            )
+            if file_paths:
+                # Multipart/form-data for file uploads
+                headers = {"X-API-KEY": self.api_key, "Accept": "application/json"}
+                data = {}
+                if json_data:
+                    for k, v in json_data.items():
+                        if isinstance(v, (list, dict)):
+                            data[k] = json.dumps(v)
+                        elif v is not None:
+                            data[k] = str(v)
+                files = []
+                for fp in file_paths:
+                    fname = os.path.basename(fp)
+                    files.append((file_field, (fname, open(fp, "rb"))))
+                try:
+                    response = await http.request(
+                        method=method,
+                        url=url,
+                        headers=headers,
+                        params=params,
+                        data=data,
+                        files=files
+                    )
+                finally:
+                    for _, (_, f) in files:
+                        f.close()
+            else:
+                response = await http.request(
+                    method=method,
+                    url=url,
+                    headers=self.headers,
+                    params=params,
+                    json=json_data
+                )
 
             logger.info(f"Response status: {response.status_code}")
 
@@ -446,18 +479,36 @@ async def get_message(message_id: str) -> dict:
 
 
 @mcp.tool()
-async def send_message(chat_id: str, text: str) -> dict:
+async def send_message(
+    chat_id: str,
+    text: str,
+    attachment_paths: Optional[list[str]] = None,
+    quote_id: Optional[str] = None,
+    account_id: Optional[str] = None
+) -> dict:
     """Send a message in an existing chat (works for any platform).
 
     Use this for ongoing conversations on LinkedIn, WhatsApp, or any
     connected platform. The platform is determined by the chat_id.
+    Supports file attachments (documents, images, PDFs, etc.).
 
     Args:
         chat_id: The chat/conversation ID (from list_chats)
         text: The message content to send
+        attachment_paths: Optional list of local file paths to attach
+        quote_id: Optional message ID to reply to / quote
+        account_id: Optional account ID to scope the message
     """
     body = {"text": text}
-    return await client.request("POST", f"/chats/{chat_id}/messages", json_data=body)
+    if quote_id:
+        body["quote_id"] = quote_id
+
+    return await client.request(
+        "POST", f"/chats/{chat_id}/messages",
+        json_data=body,
+        account_id=account_id,
+        file_paths=attachment_paths
+    )
 
 
 @mcp.tool()
@@ -490,26 +541,50 @@ async def get_message_attachment(message_id: str) -> dict:
 async def start_chat(
     attendees_ids: list[str],
     text: str,
-    account_id: Optional[str] = None
+    account_id: Optional[str] = None,
+    attachment_paths: Optional[list[str]] = None,
+    subject: Optional[str] = None,
+    linkedin_inmail: bool = False,
+    linkedin_topic: Optional[str] = None
 ) -> dict:
     """Start a new conversation on any connected platform.
 
-    For LinkedIn: pass LinkedIn provider IDs.
+    For LinkedIn: pass LinkedIn provider IDs. Supports InMail and topics.
     For WhatsApp: pass phone numbers (with country code, e.g. "919876543210").
+    Supports file attachments (documents, images, PDFs, etc.).
 
     Args:
         attendees_ids: List of provider IDs or phone numbers
         text: The initial message content
         account_id: Optional - specify which account to use.
                     Defaults to LinkedIn if not specified.
+        attachment_paths: Optional list of local file paths to attach
+        subject: Optional conversation subject
+        linkedin_inmail: If True, send as InMail (requires LinkedIn premium)
+        linkedin_topic: Topic for company conversations (e.g. "service_request", "request_demo")
     """
     body = {
         "attendees_ids": attendees_ids,
         "text": text
     }
+    if subject:
+        body["subject"] = subject
+
+    if linkedin_inmail or linkedin_topic:
+        linkedin = {}
+        if linkedin_inmail:
+            linkedin["inmail"] = True
+        if linkedin_topic:
+            linkedin["topic"] = linkedin_topic
+        body["linkedin"] = linkedin
 
     acc = account_id or client.linkedin_account_id
-    return await client.request("POST", "/chats", json_data=body, account_id=acc)
+    return await client.request(
+        "POST", "/chats",
+        json_data=body,
+        account_id=acc,
+        file_paths=attachment_paths
+    )
 
 
 @mcp.tool()
@@ -774,9 +849,10 @@ async def send_email(
     reply_to: Optional[str] = None,
     track_opens: bool = False,
     track_links: bool = False,
-    tracking_label: Optional[str] = None
+    tracking_label: Optional[str] = None,
+    attachment_paths: Optional[list[str]] = None
 ) -> dict:
-    """Send an email with optional open/click tracking.
+    """Send an email with optional open/click tracking and attachments.
 
     Tracking uses Unipile webhooks — when enabled, you'll receive
     mail_opened events via configured webhooks.
@@ -792,6 +868,7 @@ async def send_email(
         track_opens: Enable open tracking via webhooks
         track_links: Enable link click tracking via webhooks
         tracking_label: Custom label for webhook correlation (e.g. "job-app")
+        attachment_paths: Optional list of local file paths to attach
     """
     email_data = {
         "to": [{"identifier": addr} for addr in to],
@@ -817,7 +894,12 @@ async def send_email(
         email_data["tracking_options"] = tracking
 
     acc = account_id or client.email_account_id
-    return await client.request("POST", "/emails", json_data=email_data, account_id=acc)
+    return await client.request(
+        "POST", "/emails",
+        json_data=email_data,
+        account_id=acc,
+        file_paths=attachment_paths
+    )
 
 
 @mcp.tool()
