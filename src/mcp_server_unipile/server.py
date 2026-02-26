@@ -1588,12 +1588,15 @@ async def get_profile(
 
     Args:
         provider_id: The LinkedIn provider ID
-        sections: Optional sections: about, experience, education, skills,
-                  certifications, languages, projects, recommendations_received
+        sections: Optional LinkedIn profile sections to retrieve.
+                  Values: about, experience, education, skills, certifications,
+                  languages, projects, recommendations_received.
+                  Use "*_preview" for lightweight data (e.g. "experience_preview").
+                  Use "*" for all sections (may be throttled by LinkedIn).
     """
     params = {}
     if sections:
-        params["sections"] = ",".join(sections)
+        params["linkedin_sections"] = sections
 
     return await client.request("GET", f"/users/{provider_id}", params=params,
                                 account_id=client.linkedin_account_id)
