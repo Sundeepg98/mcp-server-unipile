@@ -524,16 +524,20 @@ async def forward_message(message_id: str, chat_id: str) -> dict:
 
 
 @mcp.tool()
-async def get_message_attachment(message_id: str) -> dict:
+async def get_message_attachment(message_id: str, attachment_id: str) -> dict:
     """Download a message attachment (returns base64-encoded binary).
 
+    Works for WhatsApp, LinkedIn, Telegram, and other messaging platforms.
+    Get the attachment_id from the 'attachments' array in the message object.
+
     Args:
-        message_id: The message ID containing the attachment
+        message_id: The Unipile message ID
+        attachment_id: The attachment ID from the message's attachments array
 
     Returns:
         {content_type, size_bytes, data_base64}
     """
-    return await client.request("GET", f"/messages/{message_id}/attachment",
+    return await client.request("GET", f"/messages/{message_id}/attachments/{attachment_id}",
                                 expect_binary=True)
 
 
